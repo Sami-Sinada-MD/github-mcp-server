@@ -1,0 +1,793 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "GitHub MCP Server HTTP API",
+    "description": "OpenAPI specification for the GitHub MCP Server streamable HTTP transport and OAuth protected resource metadata endpoints.\n\nThe server exposes the Model Context Protocol (MCP) over streamable HTTP. Clients send JSON-RPC 2.0 messages via POST, may open SSE streams via GET, and terminate sessions via DELETE.\n\nStart the server with `github-mcp-server http` (default port 8082).",
+    "version": "version"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8082",
+      "description": "Local development server (default port from `github-mcp-server http --port`)"
+    }
+  ],
+  "tags": [
+    {
+      "name": "MCP",
+      "description": "Model Context Protocol streamable HTTP transport endpoints"
+    },
+    {
+      "name": "OAuth",
+      "description": "OAuth 2.0 Protected Resource Metadata (RFC 9728) discovery endpoints"
+    }
+  ],
+  "paths": {
+    "/": {
+      "post": {
+        "operationId": "postMcpJsonRpc",
+        "summary": "Send MCP JSON-RPC request",
+        "description": "Primary MCP transport endpoint. Accepts JSON-RPC 2.0 requests such as `initialize`, `tools/list`, `tools/call`, `resources/read`, and `prompts/get`.",
+        "tags": ["MCP"],
+        "parameters": [
+          { "$ref": "#/components/parameters/McpSessionId" },
+          { "$ref": "#/components/parameters/McpProtocolVersion" },
+          { "$ref": "#/components/parameters/McpReadonly" },
+          { "$ref": "#/components/parameters/McpToolsets" },
+          { "$ref": "#/components/parameters/McpTools" },
+          { "$ref": "#/components/parameters/McpExcludeTools" },
+          { "$ref": "#/components/parameters/McpFeatures" },
+          { "$ref": "#/components/parameters/McpLockdown" },
+          { "$ref": "#/components/parameters/McpInsiders" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/McpJsonRpcRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "JSON-RPC response or accepted request for streaming",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/McpJsonRpcResponse" }
+              },
+              "text/event-stream": {
+                "schema": { "type": "string", "description": "Server-sent events for streaming MCP responses" }
+              }
+            }
+          },
+          "400": { "description": "Bad request — malformed Authorization header or unknown tools" },
+          "401": { "description": "Unauthorized — missing Authorization header", "headers": { "WWW-Authenticate": { "schema": { "type": "string" } } } },
+          "403": { "description": "Forbidden — insufficient OAuth scopes when `--scope-challenge` is enabled", "headers": { "WWW-Authenticate": { "schema": { "type": "string" } } } },
+          "415": { "description": "Unsupported Media Type — Content-Type must be application/json" },
+          "500": { "description": "Internal server error" }
+        },
+        "security": [{ "BearerAuth": [] }]
+      },
+      "get": {
+        "operationId": "getMcpEventStream",
+        "summary": "Open MCP SSE stream",
+        "description": "Streamable HTTP GET endpoint for server-sent event responses.",
+        "tags": ["MCP"],
+        "parameters": [
+          { "$ref": "#/components/parameters/McpSessionId" },
+          { "$ref": "#/components/parameters/LastEventId" },
+          { "$ref": "#/components/parameters/McpProtocolVersion" }
+        ],
+        "responses": {
+          "200": {
+            "description": "Event stream",
+            "content": {
+              "text/event-stream": {
+                "schema": { "type": "string" }
+              }
+            }
+          },
+          "401": { "description": "Unauthorized — missing Authorization header", "headers": { "WWW-Authenticate": { "schema": { "type": "string" } } } },
+          "403": { "description": "Forbidden — insufficient OAuth scopes when `--scope-challenge` is enabled" },
+          "500": { "description": "Internal server error" }
+        },
+        "security": [{ "BearerAuth": [] }]
+      },
+      "delete": {
+        "operationId": "deleteMcpSession",
+        "summary": "Terminate MCP session",
+        "description": "Streamable HTTP DELETE endpoint used to terminate an MCP session.",
+        "tags": ["MCP"],
+        "parameters": [
+          { "$ref": "#/components/parameters/McpSessionId" },
+          { "$ref": "#/components/parameters/McpProtocolVersion" }
+        ],
+        "responses": {
+          "200": { "description": "Session terminated" },
+          "401": { "description": "Unauthorized — missing Authorization header", "headers": { "WWW-Authenticate": { "schema": { "type": "string" } } } },
+          "500": { "description": "Internal server error" }
+        },
+        "security": [{ "BearerAuth": [] }]
+      },
+      "options": {
+        "operationId": "optionsMcpCors",
+        "summary": "CORS preflight for MCP endpoints",
+        "tags": ["MCP"],
+        "responses": {
+          "200": { "description": "CORS preflight succeeded" }
+        },
+        "security": []
+      }
+    },
+    "/readonly": {
+      "post": {
+        "operationId": "postMcpJsonRpcReadonly",
+        "summary": "Send MCP JSON-RPC request (read-only mode)",
+        "description": "Same as POST `/` but the server registers only read-only MCP tools.",
+        "tags": ["MCP"],
+        "parameters": [
+          { "$ref": "#/components/parameters/McpSessionId" },
+          { "$ref": "#/components/parameters/McpProtocolVersion" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/McpJsonRpcRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "JSON-RPC response", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/McpJsonRpcResponse" } } } },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized", "headers": { "WWW-Authenticate": { "schema": { "type": "string" } } } },
+          "403": { "description": "Forbidden — insufficient OAuth scopes" },
+          "500": { "description": "Internal server error" }
+        },
+        "security": [{ "BearerAuth": [] }]
+      },
+      "options": {
+        "operationId": "optionsMcpReadonlyCors",
+        "summary": "CORS preflight for read-only MCP endpoint",
+        "tags": ["MCP"],
+        "responses": { "200": { "description": "CORS preflight succeeded" } },
+        "security": []
+      }
+    },
+    "/insiders": {
+      "post": {
+        "operationId": "postMcpJsonRpcInsiders",
+        "summary": "Send MCP JSON-RPC request (insiders mode)",
+        "description": "Same as POST `/` but insiders feature flags are enabled for early-access MCP tools.",
+        "tags": ["MCP"],
+        "parameters": [
+          { "$ref": "#/components/parameters/McpSessionId" },
+          { "$ref": "#/components/parameters/McpProtocolVersion" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/McpJsonRpcRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "JSON-RPC response", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/McpJsonRpcResponse" } } } },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized", "headers": { "WWW-Authenticate": { "schema": { "type": "string" } } } },
+          "403": { "description": "Forbidden — insufficient OAuth scopes" },
+          "500": { "description": "Internal server error" }
+        },
+        "security": [{ "BearerAuth": [] }]
+      },
+      "options": {
+        "operationId": "optionsMcpInsidersCors",
+        "summary": "CORS preflight for insiders MCP endpoint",
+        "tags": ["MCP"],
+        "responses": { "200": { "description": "CORS preflight succeeded" } },
+        "security": []
+      }
+    },
+    "/readonly/insiders": {
+      "post": {
+        "operationId": "postMcpJsonRpcReadonlyInsiders",
+        "summary": "Send MCP JSON-RPC request (read-only insiders mode)",
+        "tags": ["MCP"],
+        "parameters": [
+          { "$ref": "#/components/parameters/McpSessionId" },
+          { "$ref": "#/components/parameters/McpProtocolVersion" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/McpJsonRpcRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "JSON-RPC response", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/McpJsonRpcResponse" } } } },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized", "headers": { "WWW-Authenticate": { "schema": { "type": "string" } } } },
+          "403": { "description": "Forbidden — insufficient OAuth scopes" },
+          "500": { "description": "Internal server error" }
+        },
+        "security": [{ "BearerAuth": [] }]
+      },
+      "options": {
+        "operationId": "optionsMcpReadonlyInsidersCors",
+        "summary": "CORS preflight for read-only insiders MCP endpoint",
+        "tags": ["MCP"],
+        "responses": { "200": { "description": "CORS preflight succeeded" } },
+        "security": []
+      }
+    },
+    "/x/{toolset}": {
+      "post": {
+        "operationId": "postMcpJsonRpcForToolset",
+        "summary": "Send MCP JSON-RPC request for a specific toolset",
+        "description": "Restricts the MCP tool inventory to the `{toolset}` path segment (for example `repos`, `issues`, `pull_requests`).",
+        "tags": ["MCP"],
+        "parameters": [
+          {
+            "name": "toolset",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" },
+            "description": "Toolset identifier to enable for this request"
+          },
+          { "$ref": "#/components/parameters/McpSessionId" },
+          { "$ref": "#/components/parameters/McpProtocolVersion" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/McpJsonRpcRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "JSON-RPC response", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/McpJsonRpcResponse" } } } },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized", "headers": { "WWW-Authenticate": { "schema": { "type": "string" } } } },
+          "403": { "description": "Forbidden — insufficient OAuth scopes" },
+          "500": { "description": "Internal server error" }
+        },
+        "security": [{ "BearerAuth": [] }]
+      },
+      "options": {
+        "operationId": "optionsMcpToolsetCors",
+        "summary": "CORS preflight for toolset MCP endpoint",
+        "tags": ["MCP"],
+        "parameters": [
+          {
+            "name": "toolset",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "CORS preflight succeeded" } },
+        "security": []
+      }
+    },
+    "/x/{toolset}/readonly": {
+      "post": {
+        "operationId": "postMcpJsonRpcForToolsetReadonly",
+        "summary": "Send MCP JSON-RPC request for a toolset in read-only mode",
+        "tags": ["MCP"],
+        "parameters": [
+          {
+            "name": "toolset",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          { "$ref": "#/components/parameters/McpSessionId" },
+          { "$ref": "#/components/parameters/McpProtocolVersion" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/McpJsonRpcRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "JSON-RPC response", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/McpJsonRpcResponse" } } } },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized", "headers": { "WWW-Authenticate": { "schema": { "type": "string" } } } },
+          "403": { "description": "Forbidden — insufficient OAuth scopes" },
+          "500": { "description": "Internal server error" }
+        },
+        "security": [{ "BearerAuth": [] }]
+      },
+      "options": {
+        "operationId": "optionsMcpToolsetReadonlyCors",
+        "summary": "CORS preflight for read-only toolset MCP endpoint",
+        "tags": ["MCP"],
+        "parameters": [
+          {
+            "name": "toolset",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "CORS preflight succeeded" } },
+        "security": []
+      }
+    },
+    "/x/{toolset}/insiders": {
+      "post": {
+        "operationId": "postMcpJsonRpcForToolsetInsiders",
+        "summary": "Send MCP JSON-RPC request for a toolset in insiders mode",
+        "tags": ["MCP"],
+        "parameters": [
+          {
+            "name": "toolset",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          { "$ref": "#/components/parameters/McpSessionId" },
+          { "$ref": "#/components/parameters/McpProtocolVersion" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/McpJsonRpcRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "JSON-RPC response", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/McpJsonRpcResponse" } } } },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized", "headers": { "WWW-Authenticate": { "schema": { "type": "string" } } } },
+          "403": { "description": "Forbidden — insufficient OAuth scopes" },
+          "500": { "description": "Internal server error" }
+        },
+        "security": [{ "BearerAuth": [] }]
+      },
+      "options": {
+        "operationId": "optionsMcpToolsetInsidersCors",
+        "summary": "CORS preflight for insiders toolset MCP endpoint",
+        "tags": ["MCP"],
+        "parameters": [
+          {
+            "name": "toolset",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "CORS preflight succeeded" } },
+        "security": []
+      }
+    },
+    "/x/{toolset}/readonly/insiders": {
+      "post": {
+        "operationId": "postMcpJsonRpcForToolsetReadonlyInsiders",
+        "summary": "Send MCP JSON-RPC request for a toolset in read-only insiders mode",
+        "tags": ["MCP"],
+        "parameters": [
+          {
+            "name": "toolset",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          { "$ref": "#/components/parameters/McpSessionId" },
+          { "$ref": "#/components/parameters/McpProtocolVersion" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/McpJsonRpcRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "JSON-RPC response", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/McpJsonRpcResponse" } } } },
+          "400": { "description": "Bad request" },
+          "401": { "description": "Unauthorized", "headers": { "WWW-Authenticate": { "schema": { "type": "string" } } } },
+          "403": { "description": "Forbidden — insufficient OAuth scopes" },
+          "500": { "description": "Internal server error" }
+        },
+        "security": [{ "BearerAuth": [] }]
+      },
+      "options": {
+        "operationId": "optionsMcpToolsetReadonlyInsidersCors",
+        "summary": "CORS preflight for read-only insiders toolset MCP endpoint",
+        "tags": ["MCP"],
+        "parameters": [
+          {
+            "name": "toolset",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "200": { "description": "CORS preflight succeeded" } },
+        "security": []
+      }
+    },
+    "/.well-known/oauth-protected-resource": {
+      "get": {
+        "operationId": "getOAuthProtectedResourceMetadata",
+        "summary": "Get OAuth protected resource metadata",
+        "description": "Returns RFC 9728 metadata describing the MCP resource, supported OAuth scopes, and authorization servers.",
+        "tags": ["OAuth"],
+        "responses": {
+          "200": {
+            "description": "OAuth protected resource metadata",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OAuthProtectedResourceMetadata" }
+              }
+            }
+          },
+          "500": { "description": "Internal server error resolving authorization server URL" }
+        },
+        "security": []
+      },
+      "options": {
+        "operationId": "optionsOAuthMetadataCors",
+        "summary": "CORS preflight for OAuth metadata endpoint",
+        "tags": ["OAuth"],
+        "responses": { "204": { "description": "CORS preflight succeeded" } },
+        "security": []
+      }
+    },
+    "/.well-known/oauth-protected-resource/readonly": {
+      "get": {
+        "operationId": "getOAuthProtectedResourceMetadataReadonly",
+        "summary": "Get OAuth metadata for read-only MCP resource",
+        "tags": ["OAuth"],
+        "responses": {
+          "200": {
+            "description": "OAuth protected resource metadata",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OAuthProtectedResourceMetadata" }
+              }
+            }
+          },
+          "500": { "description": "Internal server error" }
+        },
+        "security": []
+      },
+      "options": {
+        "operationId": "optionsOAuthMetadataReadonlyCors",
+        "summary": "CORS preflight for read-only OAuth metadata endpoint",
+        "tags": ["OAuth"],
+        "responses": { "204": { "description": "CORS preflight succeeded" } },
+        "security": []
+      }
+    },
+    "/.well-known/oauth-protected-resource/insiders": {
+      "get": {
+        "operationId": "getOAuthProtectedResourceMetadataInsiders",
+        "summary": "Get OAuth metadata for insiders MCP resource",
+        "tags": ["OAuth"],
+        "responses": {
+          "200": {
+            "description": "OAuth protected resource metadata",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OAuthProtectedResourceMetadata" }
+              }
+            }
+          },
+          "500": { "description": "Internal server error" }
+        },
+        "security": []
+      },
+      "options": {
+        "operationId": "optionsOAuthMetadataInsidersCors",
+        "summary": "CORS preflight for insiders OAuth metadata endpoint",
+        "tags": ["OAuth"],
+        "responses": { "204": { "description": "CORS preflight succeeded" } },
+        "security": []
+      }
+    },
+    "/.well-known/oauth-protected-resource/x/{toolset}": {
+      "get": {
+        "operationId": "getOAuthProtectedResourceMetadataForToolset",
+        "summary": "Get OAuth metadata for a toolset-scoped MCP resource",
+        "tags": ["OAuth"],
+        "parameters": [
+          {
+            "name": "toolset",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OAuth protected resource metadata",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OAuthProtectedResourceMetadata" }
+              }
+            }
+          },
+          "500": { "description": "Internal server error" }
+        },
+        "security": []
+      },
+      "options": {
+        "operationId": "optionsOAuthMetadataToolsetCors",
+        "summary": "CORS preflight for toolset OAuth metadata endpoint",
+        "tags": ["OAuth"],
+        "parameters": [
+          {
+            "name": "toolset",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "204": { "description": "CORS preflight succeeded" } },
+        "security": []
+      }
+    },
+    "/.well-known/oauth-protected-resource/x/{toolset}/readonly": {
+      "get": {
+        "operationId": "getOAuthProtectedResourceMetadataForToolsetReadonly",
+        "summary": "Get OAuth metadata for a read-only toolset-scoped MCP resource",
+        "tags": ["OAuth"],
+        "parameters": [
+          {
+            "name": "toolset",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OAuth protected resource metadata",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/OAuthProtectedResourceMetadata" }
+              }
+            }
+          },
+          "500": { "description": "Internal server error" }
+        },
+        "security": []
+      },
+      "options": {
+        "operationId": "optionsOAuthMetadataToolsetReadonlyCors",
+        "summary": "CORS preflight for read-only toolset OAuth metadata endpoint",
+        "tags": ["OAuth"],
+        "parameters": [
+          {
+            "name": "toolset",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": { "204": { "description": "CORS preflight succeeded" } },
+        "security": []
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "GitHub OAuth access token, personal access token (PAT), or GitHub App token supplied in the Authorization header."
+      }
+    },
+    "parameters": {
+      "McpSessionId": {
+        "name": "Mcp-Session-Id",
+        "in": "header",
+        "required": false,
+        "schema": { "type": "string" },
+        "description": "MCP session identifier for streamable HTTP transport."
+      },
+      "McpProtocolVersion": {
+        "name": "Mcp-Protocol-Version",
+        "in": "header",
+        "required": false,
+        "schema": { "type": "string" },
+        "description": "Requested MCP protocol version."
+      },
+      "LastEventId": {
+        "name": "Last-Event-ID",
+        "in": "header",
+        "required": false,
+        "schema": { "type": "string" },
+        "description": "Resume point for SSE streams."
+      },
+      "McpReadonly": {
+        "name": "X-MCP-Readonly",
+        "in": "header",
+        "required": false,
+        "schema": { "type": "string" },
+        "description": "When true, restricts the MCP inventory to read-only tools."
+      },
+      "McpToolsets": {
+        "name": "X-MCP-Toolsets",
+        "in": "header",
+        "required": false,
+        "schema": { "type": "string" },
+        "description": "Comma-separated list of MCP toolsets to enable for the request."
+      },
+      "McpTools": {
+        "name": "X-MCP-Tools",
+        "in": "header",
+        "required": false,
+        "schema": { "type": "string" },
+        "description": "Comma-separated list of specific MCP tools to enable for the request."
+      },
+      "McpExcludeTools": {
+        "name": "X-MCP-Exclude-Tools",
+        "in": "header",
+        "required": false,
+        "schema": { "type": "string" },
+        "description": "Comma-separated list of MCP tools to exclude from the request."
+      },
+      "McpFeatures": {
+        "name": "X-MCP-Features",
+        "in": "header",
+        "required": false,
+        "schema": { "type": "string" },
+        "description": "Comma-separated list of feature flags to enable for the request."
+      },
+      "McpLockdown": {
+        "name": "X-MCP-Lockdown",
+        "in": "header",
+        "required": false,
+        "schema": { "type": "string" },
+        "description": "When true, enables lockdown mode for repository access checks."
+      },
+      "McpInsiders": {
+        "name": "X-MCP-Insiders",
+        "in": "header",
+        "required": false,
+        "schema": { "type": "string" },
+        "description": "When true, enables insiders mode for early-access MCP tools."
+      }
+    },
+    "schemas": {
+      "McpJsonRpcRequest": {
+        "type": "object",
+        "required": ["jsonrpc", "method"],
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": ["2.0"]
+          },
+          "id": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "integer", "format": "int64" },
+              { "type": "null", "nullable": true }
+            ]
+          },
+          "method": {
+            "type": "string",
+            "description": "MCP JSON-RPC method name such as initialize, tools/list, tools/call, resources/read, or prompts/get."
+          },
+          "params": {
+            "type": "object",
+            "additionalProperties": true,
+            "properties": {
+              "protocolVersion": { "type": "string" },
+              "capabilities": { "type": "object", "additionalProperties": true },
+              "clientInfo": { "$ref": "#/components/schemas/McpClientInfo" },
+              "name": { "type": "string", "description": "Tool or prompt name for tools/call and prompts/get." },
+              "arguments": { "type": "object", "additionalProperties": true },
+              "uri": { "type": "string", "description": "Resource URI for resources/read." }
+            }
+          }
+        }
+      },
+      "McpJsonRpcResponse": {
+        "type": "object",
+        "required": ["jsonrpc"],
+        "properties": {
+          "jsonrpc": {
+            "type": "string",
+            "enum": ["2.0"]
+          },
+          "id": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "integer", "format": "int64" },
+              { "type": "null", "nullable": true }
+            ]
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Successful JSON-RPC result payload. Shape depends on the MCP method."
+          },
+          "error": {
+            "$ref": "#/components/schemas/McpJsonRpcError"
+          }
+        }
+      },
+      "McpJsonRpcError": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "type": "integer", "format": "int32" },
+          "message": { "type": "string" },
+          "data": { "type": "object", "additionalProperties": true, "nullable": true }
+        }
+      },
+      "McpClientInfo": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "version": { "type": "string" }
+        }
+      },
+      "OAuthProtectedResourceMetadata": {
+        "type": "object",
+        "required": [
+          "resource",
+          "authorization_servers",
+          "bearer_methods_supported",
+          "scopes_supported"
+        ],
+        "properties": {
+          "resource": {
+            "type": "string",
+            "format": "uri",
+            "description": "Protected MCP resource URL."
+          },
+          "resource_name": {
+            "type": "string",
+            "description": "Human-readable resource name.",
+            "example": "GitHub MCP Server"
+          },
+          "authorization_servers": {
+            "type": "array",
+            "items": { "type": "string", "format": "uri" },
+            "description": "OAuth authorization server URLs."
+          },
+          "bearer_methods_supported": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Supported bearer token transport methods.",
+            "example": ["header"]
+          },
+          "scopes_supported": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "repo",
+                "read:org",
+                "read:user",
+                "user:email",
+                "read:packages",
+                "write:packages",
+                "read:project",
+                "project",
+                "gist",
+                "notifications",
+                "workflow",
+                "codespace"
+              ]
+            }
+          }
+        }
+      }
+    }
+  },
+  "security": [{ "BearerAuth": [] }]
+}
