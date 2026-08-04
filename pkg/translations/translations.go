@@ -33,20 +33,27 @@ func TranslationHelper() (TranslationHelperFunc, func()) {
 	}
 
 	// create a function that takes both a key, and a default value and returns either the default value or an override value
+	// Enable automatic environment variable lookup with prefix GITHUB_MCP so viper reads env vars like GITHUB_MCP_FOO
+	v.SetEnvPrefix("GITHUB_MCP")
+	v.AutomaticEnv()
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+
 	return func(key string, defaultValue string) string {
+			origKey := key
 			key = strings.ToUpper(key)
 			if value, exists := translationKeyMap[key]; exists {
 				return value
 			}
-			// check if the env var exists
-			if value, exists := os.LookupEnv("GITHUB_MCP_" + key); exists {
-				// TODO I could not get Viper to play ball reading the env var
+			// Use viper to read env vars and config; viper uses lowercase keys internally
+			lookupKey := strings.ToLower(origKey)
+			if v.IsSet(lookupKey) {
+				value := v.GetString(lookupKey)
 				translationKeyMap[key] = value
 				return value
 			}
 
-			v.SetDefault(key, defaultValue)
-			translationKeyMap[key] = v.GetString(key)
+			v.SetDefault(lookupKey, defaultValue)
+			translationKeyMap[key] = v.GetString(lookupKey)
 			return translationKeyMap[key]
 		}, func() {
 			// dump the translationKeyMap to a json file
