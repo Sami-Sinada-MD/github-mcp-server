@@ -139,6 +139,11 @@ const (
 	PostReposActionsRunsCancelByOwnerByRepoByRunID               = "POST /repos/{owner}/{repo}/actions/runs/{run_id}/cancel"
 	GetReposActionsJobsLogsByOwnerByRepoByJobID                  = "GET /repos/{owner}/{repo}/actions/jobs/{job_id}/logs"
 	DeleteReposActionsRunsLogsByOwnerByRepoByRunID               = "DELETE /repos/{owner}/{repo}/actions/runs/{run_id}/logs"
+	GetReposActionsSecretsByOwnerByRepo                = "GET /repos/{owner}/{repo}/actions/secrets"                             //nolint:gosec // API endpoint pattern, not a credential
+	GetReposActionsSecretsByOwnerByRepoBySecretName    = "GET /repos/{owner}/{repo}/actions/secrets/{secret_name}"               //nolint:gosec // API endpoint pattern, not a credential
+	PutReposActionsSecretsByOwnerByRepoBySecretName    = "PUT /repos/{owner}/{repo}/actions/secrets/{secret_name}"               //nolint:gosec // API endpoint pattern, not a credential
+	DeleteReposActionsSecretsByOwnerByRepoBySecretName = "DELETE /repos/{owner}/{repo}/actions/secrets/{secret_name}"            //nolint:gosec // API endpoint pattern, not a credential
+	GetReposActionsSecretsPublicKeyByOwnerByRepo       = "GET /repos/{owner}/{repo}/actions/secrets/public-key"                  //nolint:gosec // API endpoint pattern, not a credential
 
 	// Search endpoints
 	GetSearchCode         = "GET /search/code"
