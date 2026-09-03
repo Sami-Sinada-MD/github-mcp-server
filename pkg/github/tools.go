@@ -92,6 +92,11 @@ var (
 		Description: "Secret protection related tools, such as GitHub Secret Scanning",
 		Icon:        "shield-lock",
 	}
+	ToolsetMetadataCredentials = inventory.ToolsetMetadata{
+		ID:          "credentials",
+		Description: "Repository credentials such as GitHub Actions secrets",
+		Icon:        "shield-lock",
+	}
 	ToolsetMetadataDependabot = inventory.ToolsetMetadata{
 		ID:          "dependabot",
 		Description: "Dependabot tools",
@@ -249,6 +254,12 @@ func AllTools(t translations.TranslationHelperFunc) []inventory.ServerTool {
 		// Secret protection tools
 		GetSecretScanningAlert(t),
 		ListSecretScanningAlerts(t),
+
+		// Repository credentials tools
+		ListRepositorySecrets(t),
+		GetRepositorySecret(t),
+		SetRepositorySecret(t),
+		DeleteRepositorySecret(t),
 
 		// Dependabot tools
 		GetDependabotAlert(t),
