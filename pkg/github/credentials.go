@@ -281,8 +281,7 @@ func SetRepositorySecret(t translations.TranslationHelperFunc) inventory.ServerT
 				return utils.NewToolResultError("failed to encrypt secret value"), nil, nil
 			}
 
-			resp, err = client.Actions.CreateOrUpdateRepoSecret(ctx, owner, repo, &github.EncryptedSecret{
-				Name:           name,
+			resp, err = client.Actions.CreateOrUpdateRepoSecret(ctx, owner, repo, name, github.SecretRequest{
 				KeyID:          pubKey.GetKeyID(),
 				EncryptedValue: encryptedValue,
 			})
