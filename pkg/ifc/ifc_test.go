@@ -204,6 +204,14 @@ func TestLabelSecurityAlert(t *testing.T) {
 		"security alerts are access-restricted regardless of repo visibility")
 }
 
+func TestLabelRepositorySecrets(t *testing.T) {
+	t.Parallel()
+	label := LabelRepositorySecrets()
+	assert.Equal(t, IntegrityTrusted, label.Integrity)
+	assert.Equal(t, ConfidentialityPrivate, label.Confidentiality,
+		"repository secret metadata is admin-only regardless of repo visibility")
+}
+
 func TestLabelGlobalSecurityAdvisory(t *testing.T) {
 	t.Parallel()
 	label := LabelGlobalSecurityAdvisory()

@@ -253,6 +253,20 @@ func LabelSecurityAlert() SecurityLabel {
 	return PrivateUntrusted()
 }
 
+// LabelRepositorySecrets returns the IFC label for GitHub Actions repository
+// secret metadata (names and timestamps). Values are never included: GitHub
+// does not expose them through the API, and these tools do not echo the
+// plaintext supplied when a secret is created or updated.
+//
+// Integrity is trusted because the result is GitHub-maintained metadata
+// (secret names and timestamps), not user-authored content.
+//
+// Confidentiality is always private. Listing or reading repository secrets
+// requires admin access regardless of repository visibility.
+func LabelRepositorySecrets() SecurityLabel {
+	return PrivateTrusted()
+}
+
 // LabelGlobalSecurityAdvisory returns the IFC label for advisories served from
 // the public GitHub Advisory Database (global advisories).
 //
