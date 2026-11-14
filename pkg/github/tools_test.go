@@ -184,4 +184,5 @@ func TestGenerateToolsetsHelp(t *testing.T) {
 	assert.Contains(t, helpText, "actions")
 	assert.Contains(t, helpText, "gists")
 	assert.Contains(t, helpText, "notifications")
+	assert.Contains(t, helpText, "credentials")
 }
